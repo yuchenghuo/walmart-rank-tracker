@@ -1,68 +1,59 @@
 #!/usr/bin/python3
 
 import csv
-import time
 import datetime
 import json
 import os
 from collections import defaultdict
-from itertools import product
 from serpapi import GoogleSearch
 from os.path import exists
 
-API_KEY = "a1e3b7c772766d107dc08fef628ce66d801857ecc56312cb0f512a59b102ec91"
+API_KEY = "CHANGE TO YOUR SERPAPI API KEY"
 PRODUCT_IDS = [
-    901547602,
-    446186463,
-    241956104,
+    # Product IDs for Walmart
 ]
 QUERIES = [
-    "keto snacks",
-    "low carb snacks",
-    "the only bean edamame",
-    "the only bean",
-    "edamame",
-    "edamame snacks",
-    "protein snacks",
+    # Queries for Searches
 ]
-EXCEL_FILE_NAME = "ranks.csv"
-JSON_FILE_NAME = "ranks.json"
+CSV_FILE_NAME = "ranks.csv"  # Change to customize csv file name
+JSON_FILE_NAME = "ranks.json"  # Change to customize json file name
 
 
 def get_params(query, page_num):
     return {
         "engine": "walmart",
         "query": query,
-        "ps": "50",
         "page": str(page_num),
-        "device": "desktop",
+        "device": "mobile",
         "api_key": API_KEY,
+        "no_cache": "true",  # Change to "false" to use cached results
     }
 
 
-def get_rank_by_query_and_pid(pid, query):
+def get_rank_by_query_and_pid(query):
     count_non_sponsored = 0
+    ranks = [-1] * len(PRODUCT_IDS)
     for page_num in range(1, 6):
+        # Modify 6 to change the number of pages to search
         params = get_params(query, page_num)
         search = GoogleSearch(params)
-        results = search.get_dict()["organic_results"]
-        pids = []
-        for result in results:
-            if not result["sponsored"]:
-                pids.append(result["us_item_id"])
-        if str(pid) in pids:
-            return count_non_sponsored + pids.index(str(pid)) + 1
+        results = search.get_dict()
+        results = results["organic_results"]
+        pids = [result["us_item_id"]
+                if not result["sponsored"] else None for result in results]
+        for i, pid in enumerate(PRODUCT_IDS):
+            if ranks[i] == -1 and str(pid) in pids:
+                ranks[i] = count_non_sponsored + pids.index(str(pid)) + 1
         count_non_sponsored += len(pids)
-    return -1
+    return ranks
 
 
 def get_ranks():
     results = dict()
-    for pid, query in product(PRODUCT_IDS, QUERIES):
-        result = get_rank_by_query_and_pid(pid, query)
-        if result == -1:
-            result = "N/A"
-        results[f"{pid}|{query}"] = result
+    for query in QUERIES:
+        ranks = get_rank_by_query_and_pid(query)
+        for i, r in enumerate(ranks):
+            results[f"{PRODUCT_IDS[i]}|{query}"] = "N/A" if r == -1 else r
     return results
 
 
@@ -87,10 +78,10 @@ def save_csv(data):
             pid, query = key.split('|')
             rows[(pid, query)][date] = result
 
-    if exists(EXCEL_FILE_NAME):
-        os.remove(EXCEL_FILE_NAME)
+    if exists(CSV_FILE_NAME):
+        os.remove(CSV_FILE_NAME)
 
-    with open(EXCEL_FILE_NAME, 'w') as outfile:
+    with open(CSV_FILE_NAME, 'w') as outfile:
         writer = csv.writer(outfile)
         header = ['product_id', 'search_term']
         header.extend(sorted(dates))
@@ -117,7 +108,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 # Uncomment the following lines to run the script automatically periodically
 # while True:

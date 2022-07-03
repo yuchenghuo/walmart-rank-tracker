@@ -181,3 +181,6 @@ dmypy.json
 cython_debug/
 
 .idea/
+
+ranks.csv
+ranks.json
