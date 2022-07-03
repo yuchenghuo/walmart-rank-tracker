@@ -119,6 +119,7 @@ if __name__ == "__main__":
     main()
 
 
-while True:
-    main()
-    time.sleep(3 * 24 * 60 * 60)
+# Uncomment the following lines to run the script automatically periodically
+# while True:
+#     main()
+#     time.sleep(3 * 24 * 60 * 60)
