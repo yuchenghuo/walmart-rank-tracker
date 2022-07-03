@@ -32,29 +32,47 @@ def get_params(query, page_num):
 
 def get_rank_by_query_and_pid(query):
     count_non_sponsored = 0
-    ranks = [-1] * len(PRODUCT_IDS)
+    count_sponsored = 0
+    ranks_non_sponsored = [-1] * len(PRODUCT_IDS)
+    ranks_sponsored = [-1] * len(PRODUCT_IDS)
     for page_num in range(1, 6):
         # Modify 6 to change the number of pages to search
         params = get_params(query, page_num)
         search = GoogleSearch(params)
         results = search.get_dict()
+        if "organic_results" not in results:
+            break
         results = results["organic_results"]
-        pids = [result["us_item_id"]
-                if not result["sponsored"] else None for result in results]
+        pids_non_sponsored = []
+        pids_sponsored = []
+        for result in results:
+            if result["sponsored"]:
+                pids_sponsored.append(result["us_item_id"])
+            else:
+                pids_non_sponsored.append(result["us_item_id"])
         for i, pid in enumerate(PRODUCT_IDS):
-            if ranks[i] == -1 and str(pid) in pids:
-                ranks[i] = count_non_sponsored + pids.index(str(pid)) + 1
-        count_non_sponsored += len(pids)
-    return ranks
+            pid = str(pid)
+            if ranks_non_sponsored[i] == -1 and pid in pids_non_sponsored:
+                ranks_non_sponsored[i] = count_non_sponsored + pids_non_sponsored.index(pid) + 1
+            if ranks_sponsored[i] == -1 and pid in pids_sponsored:
+                ranks_sponsored[i] = count_sponsored + pids_sponsored.index(pid) + 1
+        count_non_sponsored += len(pids_non_sponsored)
+        count_sponsored += len(pids_sponsored)
+    return ranks_non_sponsored, ranks_sponsored
 
 
 def get_ranks():
-    results = dict()
+    results_non_sponsored = dict()
+    results_sponsored = dict()
     for query in QUERIES:
-        ranks = get_rank_by_query_and_pid(query)
-        for i, r in enumerate(ranks):
-            results[f"{PRODUCT_IDS[i]}|{query}"] = "N/A" if r == -1 else r
-    return results
+        ranks_non_sponsored, ranks_sponsored = get_rank_by_query_and_pid(query)
+        for i, rank in enumerate(ranks_non_sponsored):
+            results_non_sponsored[f"{PRODUCT_IDS[i]}|{query}"] = \
+                "N/A" if rank == -1 else rank
+        for i, rank in enumerate(ranks_sponsored):
+            results_sponsored[f"{PRODUCT_IDS[i]}|{query}"] = \
+                "N/A" if rank == -1 else rank
+    return results_non_sponsored, results_sponsored
 
 
 def load_data():
@@ -69,7 +87,7 @@ def save_data(data):
         json.dump(data, outfile)
 
 
-def save_csv(data):
+def save_csv(data, results_sponsored):
     rows = defaultdict(dict)
     dates = set()
     for date, results in data.items():
@@ -83,12 +101,12 @@ def save_csv(data):
 
     with open(CSV_FILE_NAME, 'w') as outfile:
         writer = csv.writer(outfile)
-        header = ['product_id', 'search_term']
+        header = ['product_id', 'search_term', 'latest_sponsored_rank']
         header.extend(sorted(dates))
         writer.writerow(header)
         for (pid, query) in sorted(rows.keys()):
             results = rows[(pid, query)]
-            ranks = []
+            ranks = [results_sponsored[f"{pid}|{query}"]]
             for d in sorted(dates):
                 if d in results:
                     ranks.append(results[d])
@@ -101,9 +119,10 @@ def save_csv(data):
 
 def main():
     data = load_data()
-    data[str(datetime.date.today() + datetime.timedelta(days=2))] = get_ranks()
+    date = str(datetime.date.today() + datetime.timedelta(days=0))
+    data[date], results_sponsored = get_ranks()
     save_data(data)
-    save_csv(data)
+    save_csv(data, results_sponsored)
 
 
 if __name__ == "__main__":
