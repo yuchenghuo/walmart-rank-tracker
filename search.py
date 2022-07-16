@@ -88,33 +88,18 @@ def save_data(data):
 
 
 def save_csv(data, results_sponsored):
-    rows = defaultdict(dict)
-    dates = set()
-    for date, results in data.items():
-        dates.add(date)
-        for key, result in results.items():
-            pid, query = key.split('|')
-            rows[(pid, query)][date] = result
-
-    if exists(CSV_FILE_NAME):
-        os.remove(CSV_FILE_NAME)
-
     with open(CSV_FILE_NAME, 'w') as outfile:
         writer = csv.writer(outfile)
-        header = ['product_id', 'search_term', 'latest_sponsored_rank']
-        header.extend(sorted(dates))
+        header = ['product_id', 'search_term', 'date', 'rank']
         writer.writerow(header)
-        for (pid, query) in sorted(rows.keys()):
-            results = rows[(pid, query)]
-            ranks = [results_sponsored[f"{pid}|{query}"]]
-            for d in sorted(dates):
-                if d in results:
-                    ranks.append(results[d])
-                else:
-                    ranks.append("N/A")
-            row = [pid, query]
-            row.extend(ranks)
-            writer.writerow(row)
+        for key, result in results_sponsored.items():
+            pid, query = key.split('|')
+            writer.writerow([pid, query, 'sponsored', result])
+
+        for date, results in data.items():
+            for key, result in results.items():
+                pid, query = key.split('|')
+                writer.writerow([pid, query, date, result])
 
 
 def main():
